@@ -1,0 +1,48 @@
+
+services:
+  zookeeper:
+    image: quay.io/strimzi/kafka:0.27.0-kafka-3.0.0
+    command: [
+      "sh", "-c",
+      "bin/zookeeper-server-start.sh /etc/kafka/config/zookeeper.properties"
+    ]
+    environment:
+      LOG_DIR: /tmp/logs
+    volumes:
+      - ./config:/etc/kafka/config
+    healthcheck:
+      test: echo srvr | nc zookeeper 2181 || exit 1
+      start_period: 5s
+      interval: 10s
+      retries: 20
+
+  kafka:
+    image: quay.io/strimzi/kafka:0.27.0-kafka-3.0.0
+    command: [
+      "sh", "-c",
+      "bin/kafka-server-start.sh /etc/kafka/config/server.properties
+        --override listeners=$${KAFKA_LISTENERS}
+        --override advertised.listeners=$${KAFKA_ADVERTISED_LISTENERS}
+        --override listener.security.protocol.map=$${KAFKA_SECURITY_PROTOCOL_MAP}
+        --override zookeeper.connect=$${KAFKA_ZOOKEEPER_CONNECT}"
+    ]
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_OPTS: " -javaagent:/opt/kafka/libs/kafka-agent-0.27.0.jar=/tmp/kafka-ready:/tmp/zk-connected"
+      LOG_DIR: /tmp/logs
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,HOST://localhost:9094
+      KAFKA_LISTENERS: PLAINTEXT://:9092,HOST://:9094
+      KAFKA_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    volumes:
+      - ./config:/etc/kafka/config
+    healthcheck:
+      # test: nc -z localhost 9092 || exit 1
+      test: test -f /tmp/kafka-ready
+      start_period: 10s
+      interval: 10s
+      retries: 20
+    ports:
+      - 9094:9094
