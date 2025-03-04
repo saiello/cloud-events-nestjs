@@ -1,7 +1,9 @@
-import { Controller } from '@nestjs/common';
+import { Controller, UseInterceptors } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
 import { OrderCreatedDto, OrderDeletedDto } from './app.dtos';
+import { LoggingInterceptor } from './app.interceptor';
 
+@UseInterceptors(LoggingInterceptor)
 @Controller()
 export class AppController {
   // pattern is the cloud event type
